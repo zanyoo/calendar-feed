@@ -46,7 +46,7 @@ def build_event(dt_start: date, summary: str):
     return event
 
 
-def build_calendar_info(start_date, end_date):
+def build_calendar_info(start_date, end_date, num=-1):
     if end_date < start_date:
         raise Exception("结束时间必须晚于开始时间")
 
@@ -55,17 +55,19 @@ def build_calendar_info(start_date, end_date):
     days = (end_date - start_date).days + 1
     for i in range(days):
         d = start_date + timedelta(days=i)
-        limit_info = get_limit_info(d)
+        limit_info = get_limit_info(d, num)
         if d in holiday_list:
             continue
         if limit_info == META_NOLIMIT_INFO:
+            continue
+        if limit_info is None:
             continue
         cal.add_component(build_event(d, limit_info))
     # 虽然 iCalendar 官方要求的 CRLF，但大部分现在日历应用可以解析 LF
     return cal.to_ical().decode('utf-8').replace("\r\n", "\n")
 
 
-def get_limit_info(d: datetime.date) -> str:
+def get_limit_info(d: datetime.date, num: int) -> str:
     if d < META_INIT_DATE:
         raise Exception("只支持2024/04/01之后的日期")
     if d.weekday() == 5 or d.weekday() == 6:
@@ -75,13 +77,15 @@ def get_limit_info(d: datetime.date) -> str:
     day_offset = d.weekday()
 
     offset = (cycle_offset + day_offset) % 5
-    return META_INIT_LIMIT_INFO[offset]
+    if num == -1 or offset == num:
+        return META_INIT_LIMIT_INFO[offset]
+    return META_NOLIMIT_INFO
 
 
 if __name__ == '__main__':
-    result_file = "../limit.ics"
+    result_file = "../limit_4_9.ics"
 
-    ics = build_calendar_info(date(2025, 1, 1), date(2026, 1, 1))
+    ics = build_calendar_info(date(2025, 1, 1), date(2026, 1, 1), 4)
     # 可以使用https://icalendar.org/validator.html进行校验
     # 1. iCalendar要求文件内容用 CRLF 来换行，但 apple 不要求
     with open(result_file, 'w', encoding='utf-8') as f:
